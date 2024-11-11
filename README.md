@@ -1,90 +1,116 @@
-<p align="center">
-    <img src="https://user-images.githubusercontent.com/6702424/80216211-00ef5280-863e-11ea-81de-59f3a3d4b8e4.png">  
-</p>
-<p align="center">
-    <i></i>
-    <br>
-    <br>
-    <a href="https://github.com/garronej/paris-typescript-2024/actions">
-      <img src="https://github.com/garronej/paris-typescript-2024/actions/workflows/ci.yaml/badge.svg?branch=main">
-    </a>
-    <a href="https://bundlephobia.com/package/paris-typescript-2024">
-      <img src="https://img.shields.io/bundlephobia/minzip/paris-typescript-2024">
-    </a>
-    <a href="https://www.npmjs.com/package/paris-typescript-2024">
-      <img src="https://img.shields.io/npm/dw/paris-typescript-2024">
-    </a>
-    <a href="https://github.com/garronej/paris-typescript-2024/blob/main/LICENSE">
-      <img src="https://img.shields.io/npm/l/paris-typescript-2024">
-    </a>
-</p>
-<p align="center">
-  <a href="https://github.com/garronej/paris-typescript-2024">Home</a>
-  -
-  <a href="https://github.com/garronej/paris-typescript-2024">Documentation</a>
-</p>
+Two main criticisms of TypeScript:
 
-# Install / Import
+1. TypeScript gets in my way of doing things. It slows me down.
+2. TypeScript is not really type-safe, it's just glorified auto-completion.  
+   You can always cast to `any` and get around the type system.
 
-```bash
-$ npm install --save paris-typescript-2024
+Those two point are linked to one another.
+The first frustration comes from the fact that there are things you know are
+true but TypeScript is not aware of so you end up using `any` or `!` to get around
+the problem and move on.
+
+But because you know that you've done it in some place now all your trust in the
+type system is gone and you start seeing it as mere suggestions rather than
+guarantees.
+
+In this talk I'll argue that the use of carefully crafted utilities leveraging the
+`assert` and `is` TypeScript keyword can significantly mitigate those issues.
+
+So let me show you a few practical examples of how you can leverage the `asserts`
+keyword through generic utility functions.
+
+The focus here is not to go through the details of the implementation of the utilities
+I'm going to show you. If you are curious I've gathered them into a NPM module
+called [tsafe](https://github.com/garronej/tsafe), you can check it out.
+
+To be clear, this talk is not about selling you `tsafe` you can very well prefer
+to copy paste the implementation of the utilities in your project.
+
+So before jumping into the examples let's see what the `asserts` keyword is.
+
+```ts
+/*
+function assert(condition: any, msg?: string) {
+    if (!condition) {
+        throw new Error(msg ?? "Assertion failed");
+    }
+}
+*/
+
+function assert(condition: any, msg?: string): asserts condition {
+    if (!condition) {
+        throw new Error(msg);
+    }
+}
+
+declare const x: string | undefined;
+
+assert(x !== undefined);
+
+x.toUpperCase();
 ```
 
-```typescript
-import { myFunction, myObject, MyReactComponent } from "paris-typescript-2024";
+So in a word, when you call a function that has a return type of `asserts condition`
+typescript will know that if the function doesn't throw an error then the condition
+is truthy.
+
+Let's see how this alone can help us get rid of all the !
+
+```ts
+import { assert } from "tsafe/assert";
+
+type Shape = {
+    type: "circle" | "square";
+    radius?: number;
+    sideLength?: number;
+};
+
+function getArea(shape: Shape): number {
+    switch (shape.type) {
+        case "circle":
+            assert(shape.radius !== undefined);
+            return Math.PI * shape.radius ** 2;
+        case "square":
+            assert(shape.sideLength !== undefined);
+            return shape.sideLength ** 2;
+    }
+}
 ```
 
-Specific imports, only import what you need:
+If you pick up the habit of asserting things you know should be true everywhere
+the type system can't structurally enforce it. Your code will be much easier to
+reason about and when runtime errors actually occurs it will be so much easier to
+track down the source of the problem.  
+Instead of having an obscure `undefined is not a function` error you'll have a
+clear line pointing to the wrong assumption you've made about the system.
 
-```typescript
-import { myFunction } from "paris-typescript-2024/myFunction";
-import { myObject } from "paris-typescript-2024/myObject";
-import MyReactComponent from "paris-typescript-2024/MyReactComponent";
+Now let's see another primitive that can be combined with `assert` to do super useful
+things: `is` or user-defined type guards.
+
+```ts
+type Person = {
+    name: string;
+    age: number;
+};
+
+function isPerson(x: any): x is Person {
+    return (
+        typeof x === "object" &&
+        x !== null &&
+        "name" in x &&
+        typeof x.name === "string" &&
+        "age" in x &&
+        typeof x.age === "number"
+    );
+}
+
+declare const maybePerson: unknown;
+
+if (isPerson(maybePerson)) {
+    // TypeScript knows that maybePerson is a Person
+}
+
+// Now combined we can do
+
+assert(isPerson(maybePerson));
 ```
-
-# Contributing
-
-## Testing your changes in an external app
-
-You have made some changes to the code and you want to test them
-in your app before submitting a pull request?
-
-Assuming `you/my-app` have `paris-typescript-2024` as a dependency.
-
-```bash
-cd ~/github
-git clone https://github.com/you/my-app
-cd my-app
-yarn
-
-cd ~/github
-git clone https://github.com/garronej/paris-typescript-2024
-cd paris-typescript-2024
-yarn
-yarn build
-yarn link-in-app my-app
-npx tsc -w
-
-# Open another terminal
-
-cd ~/github/my-app
-rm -rf node_modules/.cache
-yarn start # Or whatever my-app is using for starting the project
-```
-
-You don't have to use `~/github` as reference path. Just make sure `my-app` and `paris-typescript-2024`
-are in the same directory.
-
-> Note for the maintainer: You might run into issues if you do not list all your singleton dependencies in
-> `src/link-in-app.js -> singletonDependencies`. A singleton dependency is a dependency that can
-> only be present once in an App. Singleton dependencies are usually listed as peerDependencies example `react`, `@emotion/*`.
-
-## Releasing
-
-For releasing a new version on GitHub and NPM you don't need to create a tag.  
-Just update the `package.json` version number and push.
-
-For publishing a release candidate update your `package.json` with `1.3.4-rc.0` (`.1`, `.2`, ...).  
-It also work if you do it from a branch that have an open PR on main.
-
-> Make sure your have defined the `NPM_TOKEN` repository secret or NPM publishing will fail.
