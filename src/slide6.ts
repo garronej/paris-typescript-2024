@@ -17,8 +17,8 @@ type Person = {
     age: number;
 };
 
-export function getAge(filePath: string): number {
-    const person = JSON.parse(fs.readFileSync(filePath).toString("utf8")) as Person;
+export function getAge(personJsonFilePath: string): number {
+    const person = JSON.parse(fs.readFileSync(personJsonFilePath, "utf8")) as Person;
 
     return person.age;
 }

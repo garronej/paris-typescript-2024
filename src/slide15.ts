@@ -7,7 +7,7 @@ We can split up the single assert statement into two separate statements:
 */
 
 import * as fs from "fs";
-import { assert, is, type Equals } from "tsafe/assert";
+import { assert, is, type Equals } from "tsafe";
 import { z } from "zod";
 
 type Person = {

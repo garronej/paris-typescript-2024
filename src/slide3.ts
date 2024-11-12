@@ -22,7 +22,7 @@ export function getAliceAge(): number {
     return alice.age;
 }
 
-function assert(condition: any): asserts condition {
+function assert(condition: any) {
     if (!condition) {
         throw new Error("Assertion failed: assumption about system state was incorrect");
     }
